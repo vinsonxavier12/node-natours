@@ -143,14 +143,20 @@ exports.getTourStats = async (req, res) => {
 
 exports.getMonthlyPlan = async (req, res) => {
   try {
-    const year = req.params.year * 1;
-    const plan = await Tour.aggregate([
+    const year = req.params.year;
+    const monthlyPlan = await Tour.aggregate([
       {
+        /* 
+          Unwind is like deconstructing array to a single document. For eg,
+          if we have 3 values in startDates. For each startDates item, we 
+          will get a new document and so for all items in the array
+        */
         $unwind: "$startDates",
       },
       {
         $match: {
           startDates: {
+            // Here we are filtering for the given year
             $gte: new Date(`${year}-01-01`),
             $lte: new Date(`${year}-12-31`),
           },
@@ -158,32 +164,34 @@ exports.getMonthlyPlan = async (req, res) => {
       },
       {
         $group: {
+          /* 
+            Here, we are grouping by month of startDates. startDates is in date
+            format. Since mongo provides some aggregation operators for date, we
+            can use $month operator to extract month from a date.
+          */
           _id: { $month: "$startDates" },
-          numTourStarts: { $sum: 1 },
+          numOfTours: { $sum: 1 }, // Adding 1 for each of document for sum
+          // We are pushing each document in tours array. Mongoose takes care of it
           tours: { $push: "$name" },
         },
       },
       {
+        // We are adding a field named month with the value of _id which is month
         $addFields: { month: "$_id" },
       },
       {
+        // Project is like what records to show or what records to hide
         $project: {
           _id: 0,
         },
       },
       {
-        $sort: {
-          numTourStarts: -1,
-        },
-      },
-      {
-        $limit: 12,
+        $sort: { numOfTours: -1 },
       },
     ]);
-
     res.status(200).json({
       status: "success",
-      plan,
+      data: monthlyPlan,
     });
   } catch (err) {
     res.status(400).json({
