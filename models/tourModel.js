@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const slugify = require("slugify");
+const validator = require("validator");
 
 const tourSchema = new mongoose.Schema(
   {
@@ -8,13 +9,26 @@ const tourSchema = new mongoose.Schema(
       required: [true, "A tour must have a name"],
       unique: true,
       trim: true,
+      minlength: [10, "A tour name must have more or equal than 10 characters"],
+      maxLength: [40, "A tour name must have less or equal than 40 characters"],
+      // validate: [validator.default.isAlpha, 'A tour must contain only alphabetical characters']
     },
     slug: String,
     price: {
       type: Number,
       required: [true, "A tour must have a price"],
     },
-    priceDiscount: Number,
+    priceDiscount: {
+      type: Number,
+      validate: {
+        validator: function (val) {
+          // this only points to current document on new document creation
+          // Doesn't work on update
+          return val < this.price;
+        },
+        message: "Discount price ({VALUE}) should be lesser than regular price",
+      },
+    },
     summary: {
       type: String,
       trim: true,
@@ -23,6 +37,9 @@ const tourSchema = new mongoose.Schema(
     ratingsAverage: {
       type: Number,
       default: 4.5,
+      // Min and max also works for dates
+      min: [1, "Rating must be above 1.0"],
+      max: [5, "Rating must be below 5.0"],
     },
     ratingsQuantity: {
       type: Number,
@@ -34,11 +51,17 @@ const tourSchema = new mongoose.Schema(
     },
     maxGroupSize: {
       type: Number,
+      // This is a shorthand syntax. Full syntax used in difficulty enum
       required: [true, "A tour must have a group size"],
     },
     difficulty: {
       type: String,
       required: [true, "A tour must have a difficulty"],
+      enum: {
+        // This is the normal syntax. In above I used array syntax it is a shorthand syntax
+        values: ["easy", "medium", "hard"],
+        message: "Difficulty must be either easy, medium or hard",
+      },
     },
     secretTour: {
       type: Boolean,
@@ -82,7 +105,6 @@ tourSchema.virtual("durationWeeks").get(function () {
   return this.duration / 7;
 });
 
-/*
 // Query middleware
 tourSchema.pre(/^find/, function (next) {
   // Selecting documents which only has secretTour false
@@ -90,25 +112,33 @@ tourSchema.pre(/^find/, function (next) {
   next();
 });
 
+/*
 tourSchema.post(/^find/, function (docs, next) {
   // Post query exec logic;
   next();
 });
 */
 
-/*
-// Document middleware
+// Document middleware: runs before .save() and .create()
 tourSchema.pre("save", function (next) {
   // Slugifying name for url purposes
   this.slug = slugify(this.name, { lower: true });
   next();
 });
 
+/*
 tourSchema.post('', function(doc, next) {
   console.log('Saved successfully\n', doc);
   next();
 })
 */
+
+tourSchema.pre("aggregate", function (next) {
+  // .unshift() inserts data to start of an array
+  // filtering secretTour to not to show
+  this.pipeline().unshift({ $match: { secretTour: { $ne: true } } });
+  next();
+});
 
 const Tour = mongoose.model("Tour", tourSchema);
 module.exports = Tour;
