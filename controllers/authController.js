@@ -3,6 +3,7 @@ const catchAsyncError = require("../utilities/catchAsyncError");
 const jwt = require("jsonwebtoken");
 const AppError = require("../utilities/appError");
 const bcrypt = require("bcryptjs");
+const { promisify } = require("util");
 
 function getSignedJwtToken(id) {
   return jwt.sign({ id }, process.env.JWT_KEY, {
@@ -12,7 +13,35 @@ function getSignedJwtToken(id) {
 
 // Protecting routes by using token authentication
 exports.protect = catchAsyncError(async (req, res, next) => {
-  if (req.header.token) next();
+  let token;
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    token = req.headers.authorization.split(" ")[1];
+  }
+
+  if (!token)
+    return next(new AppError("Missing authorization token in header", 401));
+
+  // Checking if token contents are changed
+  const decodedPayload = await promisify(jwt.verify)(
+    token,
+    process.env.JWT_KEY,
+  );
+  const user = await User.findById(decodedPayload.id);
+  if (!user) return next(new AppError("User doesn't exist", 400));
+
+  if (user.isChangedPasswordAfterTokenIssued(decodedPayload.iat)) {
+    // If user changed password after token issued
+    return next(
+      new AppError("Password changed.  Please login again to continue", 401),
+    );
+  }
+
+  // Proceeding protected route
+  req.user = user;
+  next();
 });
 
 exports.signup = catchAsyncError(async (req, res, next) => {
