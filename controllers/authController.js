@@ -44,10 +44,22 @@ exports.protect = catchAsyncError(async (req, res, next) => {
   next();
 });
 
+exports.restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return next(
+        new AppError("You do not have permission to perform this action", 403),
+      );
+    }
+    next();
+  };
+};
+
 exports.signup = catchAsyncError(async (req, res, next) => {
   const signedupUser = await User.create({
     name: req.body.name,
     email: req.body.email,
+    role: req.body.role,
     password: req.body.password,
     confirmPassword: req.body.confirmPassword,
   });
@@ -85,7 +97,6 @@ exports.login = catchAsyncError(async (req, res, next) => {
       return res.status(200).json({
         status: "success",
         token,
-        user,
       });
     }
   }
@@ -93,3 +104,14 @@ exports.login = catchAsyncError(async (req, res, next) => {
   // Can't find user or entered incorrect password
   next(new AppError("Invalid credentials", 401));
 });
+
+exports.forgotPassword = catchAsyncError(async (req, res, next) => {
+  const user = await User.findOne({ email: req.body.email });
+  console.log(user);
+  if (!user) return next(new AppError("No user found with specified email"));
+
+  const passwordToken = user.createResetPasswordToken();
+  // await user.save();
+});
+
+exports.resetPassword = catchAsyncError(async (req, res, next) => {});
