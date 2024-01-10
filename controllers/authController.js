@@ -90,6 +90,7 @@ exports.login = catchAsyncError(async (req, res, next) => {
   // Finding the user with password
   const user = await User.findOne({ email }).select("+password");
   if (user) {
+    // Comparing passwords
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (isPasswordCorrect) {
       // User entered correct password
@@ -107,11 +108,15 @@ exports.login = catchAsyncError(async (req, res, next) => {
 
 exports.forgotPassword = catchAsyncError(async (req, res, next) => {
   const user = await User.findOne({ email: req.body.email });
-  console.log(user);
   if (!user) return next(new AppError("No user found with specified email"));
 
   const passwordToken = user.createResetPasswordToken();
-  // await user.save();
+  await user.save({ validateBeforeSave: false }); // Turning off validation
+
+  return res.status(200).json({
+    status: "success",
+    token: passwordToken,
+  });
 });
 
 exports.resetPassword = catchAsyncError(async (req, res, next) => {});
