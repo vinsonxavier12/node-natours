@@ -3,6 +3,8 @@ const catchAsyncError = require("../utilities/catchAsyncError");
 const jwt = require("jsonwebtoken");
 const AppError = require("../utilities/appError");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
+const sendEmail = require("../utilities/email");
 const { promisify } = require("util");
 
 function getSignedJwtToken(id) {
@@ -113,10 +115,53 @@ exports.forgotPassword = catchAsyncError(async (req, res, next) => {
   const passwordToken = user.createResetPasswordToken();
   await user.save({ validateBeforeSave: false }); // Turning off validation
 
+  const resetUrl = `${req.protocol}://${req.get(
+    "host",
+  )}/api/v1/users/resetPassword/${passwordToken}`;
+  const message = `Do you want to reset your password?  Submit a PATCH request with your new password
+  and confirm password to: ${resetUrl}`;
+
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: "Password reset token (Valid for only 10 mins)",
+      message,
+    });
+  } catch (err) {
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+    return next(
+      new AppError("There was an error sending email.  Try again later", 500),
+    );
+  }
+
   return res.status(200).json({
     status: "success",
-    token: passwordToken,
+    message: "Email sent successfully",
   });
 });
 
-exports.resetPassword = catchAsyncError(async (req, res, next) => {});
+exports.resetPassword = catchAsyncError(async (req, res, next) => {
+  const encryptedPasswordToken = crypto
+    .createHash("sha256")
+    .update(req.params.token)
+    .digest("hex");
+
+  const user = await User.findOne({
+    passwordResetToken: encryptedPasswordToken,
+  });
+  if (!user) return next(new AppError("User not found", 500));
+
+  // Checking if token expired
+  if (Date.now() > user.passwordResetExpires.getTime()) {
+    return next(
+      new AppError(
+        "Token expired.  Gererate a new token to change your password",
+        500,
+      ),
+    );
+  }
+
+  res.json({ user });
+});
