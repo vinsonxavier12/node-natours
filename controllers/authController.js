@@ -148,10 +148,11 @@ exports.resetPassword = catchAsyncError(async (req, res, next) => {
     .update(req.params.token)
     .digest("hex");
 
+  // Fetching the user
   const user = await User.findOne({
     passwordResetToken: encryptedPasswordToken,
   });
-  if (!user) return next(new AppError("User not found", 500));
+  if (!user) return next(new AppError("User not found or invalid token", 500));
 
   // Checking if token expired
   if (Date.now() > user.passwordResetExpires.getTime()) {
@@ -163,5 +164,22 @@ exports.resetPassword = catchAsyncError(async (req, res, next) => {
     );
   }
 
-  res.json({ user });
+  // Checking for password data
+  if (!req.body.password || !req.body.confirmPassword)
+    return next(new AppError("password and confirmPassword is required", 500));
+  user.password = req.body.password;
+  user.confirmPassword = req.body.confirmPassword;
+  // Updating password changed at to current time
+  user.passwordUpdatedAt = Date.now();
+  // Removing password reset token and token expiry from db
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+  await user.save();
+
+  // Creating new jwt token and sending
+  const token = getSignedJwtToken(user._id);
+  res.status(200).json({
+    status: "success",
+    token,
+  });
 });
