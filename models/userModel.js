@@ -49,6 +49,17 @@ const userSchema = new mongoose.Schema({
   },
   passwordResetToken: String,
   passwordResetExpires: Date,
+  active: {
+    type: Boolean,
+    default: true,
+    select: false,
+  },
+});
+
+// Restricting users who are not active from finding
+userSchema.pre(/^find/, function (next) {
+  this.find({ active: { $ne: false } });
+  next();
 });
 
 userSchema.pre("save", async function (next) {
@@ -59,6 +70,22 @@ userSchema.pre("save", async function (next) {
   this.confirmPassword = undefined;
   next();
 });
+
+// Only executes on password change
+userSchema.pre("save", function (next) {
+  if (!this.isModified("password") || this.isNew) return next();
+  // Sub 1sec for practical limitations
+  this.passwordUpdatedAt = Date.now() - 1000;
+  next();
+});
+
+// Checking for password matching
+userSchema.methods.isPasswordsMatching = async function (
+  candidatePassword,
+  userPassword,
+) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
 
 userSchema.methods.isChangedPasswordAfterTokenIssued = function (jwtTimestamp) {
   if (this.passwordUpdatedAt) {

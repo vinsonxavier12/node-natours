@@ -57,6 +57,29 @@ exports.restrictTo = (...roles) => {
   };
 };
 
+exports.createSendToken = async (user, statusCode, res) => {
+  const token = getSignedJwtToken(user._id);
+  const cookieOptions = {
+    expires: new Date(
+      Date.now() + process.env.JWT_COOKIE_EXPIRY_TIME * 24 * 60 * 60 * 1000,
+    ),
+    secure: false,
+    httpOnly: true,
+  };
+  if (process.env.NODE_ENV === "production") cookieOptions.secure = true;
+
+  // Removing user's password in output data
+  user.password = undefined;
+  res.cookie("jwt", token, cookieOptions);
+  res.status(statusCode).json({
+    status: "success",
+    token,
+    data: {
+      user,
+    },
+  });
+};
+
 exports.signup = catchAsyncError(async (req, res, next) => {
   const signedupUser = await User.create({
     name: req.body.name,
@@ -66,15 +89,7 @@ exports.signup = catchAsyncError(async (req, res, next) => {
     confirmPassword: req.body.confirmPassword,
   });
 
-  const token = getSignedJwtToken(signedupUser._id);
-
-  res.status(201).json({
-    status: "success",
-    token,
-    data: {
-      user: signedupUser,
-    },
-  });
+  this.createSendToken(signedupUser, 201, res);
 });
 
 exports.login = catchAsyncError(async (req, res, next) => {
@@ -169,8 +184,6 @@ exports.resetPassword = catchAsyncError(async (req, res, next) => {
     return next(new AppError("password and confirmPassword is required", 500));
   user.password = req.body.password;
   user.confirmPassword = req.body.confirmPassword;
-  // Updating password changed at to current time
-  user.passwordUpdatedAt = Date.now();
   // Removing password reset token and token expiry from db
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
@@ -182,4 +195,24 @@ exports.resetPassword = catchAsyncError(async (req, res, next) => {
     status: "success",
     token,
   });
+});
+
+exports.updatePassword = catchAsyncError(async (req, res, next) => {
+  // 1) Fetching user from DB
+  const user = await User.findById(req.user.id).select("+password");
+  if (!user) return next(new AppError("No user found with specified ID", 404));
+
+  // 2) Checking if given password is correct
+  if (!req.body.oldPassword || !req.body.newPassword)
+    return next(new AppError("oldPassword and newPassword is required", 400));
+  if (!(await user.isPasswordsMatching(req.body.oldPassword, user.password)))
+    return next(new AppError("Incorrect password", 400));
+
+  // 3) Updating password
+  user.password = req.body.newPassword;
+  user.confirmPassword = req.body.confirmPassword;
+  await user.save();
+
+  // 4) Gerenating and sending JWT
+  this.createSendToken(user, 200, res);
 });
