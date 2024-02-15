@@ -9,6 +9,7 @@ const hpp = require("hpp");
 const AppError = require("./utilities/appError");
 const tourRouter = require("./routes/tourRoutes");
 const userRouter = require("./routes/userRoutes");
+const reviewRouter = require("./routes/reviewRoutes");
 const errorController = require("./controllers/errorController");
 
 const app = express();
@@ -23,7 +24,7 @@ app.use(helmet());
 
 // RATE LIMITING
 const limiter = rateLimit({
-  max: 3,
+  max: 100,
   window: 1 * 60 * 60 * 1000,
   message: "Too many requests.  Please try again after an hour",
 });
@@ -60,6 +61,7 @@ app.use((req, res, next) => {
 
 app.use("/api/v1/tours", tourRouter);
 app.use("/api/v1/users", userRouter);
+app.use("/api/v1/reviews", reviewRouter);
 
 // Only hits this middleware if no routes found before
 app.all("*", (req, res, next) => {
