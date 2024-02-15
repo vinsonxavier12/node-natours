@@ -4,6 +4,7 @@ const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
 const xss = require("xss-clean");
+const hpp = require("hpp");
 
 const AppError = require("./utilities/appError");
 const tourRouter = require("./routes/tourRoutes");
@@ -38,6 +39,20 @@ app.use(mongoSanitize());
 // XSS SANITIZATION
 app.use(xss());
 
+// PREVENTING PARAMETER POLLUTION
+app.use(
+  hpp({
+    whitelist: [
+      "duration",
+      "ratingsQuantity",
+      "ratingsAverage",
+      "maxGroupSize",
+      "difficulty",
+      "price",
+    ],
+  }),
+);
+
 app.use((req, res, next) => {
   req.requestTime = new Date().toISOString();
   next();
@@ -56,5 +71,3 @@ app.all("*", (req, res, next) => {
 // Mongoose knows it is a error handler by having 4 parameters
 app.use(errorController);
 module.exports = app;
-
-// Test commit from work pc at office account

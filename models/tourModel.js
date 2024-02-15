@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const slugify = require("slugify");
 
+const User = require("./userModel");
+
 const tourSchema = new mongoose.Schema(
   {
     name: {
@@ -80,6 +82,36 @@ const tourSchema = new mongoose.Schema(
       default: Date.now(),
     },
     startDates: [Date],
+    startLocation: {
+      // geoJSON
+      type: {
+        type: String,
+        default: "Point",
+        enum: ["Point"],
+      },
+      coordinates: [Number],
+      address: String,
+      description: String,
+    },
+    locations: [
+      {
+        type: {
+          type: String,
+          default: "Point",
+          enum: ["Point"],
+        },
+        coordinates: [Number],
+        address: String,
+        description: String,
+        day: Number,
+      },
+    ],
+    guides: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { toJSON: { virtuals: true }, toObject: { virtuals: true } },
 );
@@ -111,12 +143,13 @@ tourSchema.pre(/^find/, function (next) {
   next();
 });
 
-/*
-tourSchema.post(/^find/, function (docs, next) {
-  // Post query exec logic;
+tourSchema.pre(/^find/, function (next) {
+  this.populate({
+    path: "guides",
+    select: "-__v",
+  });
   next();
 });
-*/
 
 // Document middleware: runs before .save() and .create()
 tourSchema.pre("save", function (next) {
@@ -124,13 +157,6 @@ tourSchema.pre("save", function (next) {
   this.slug = slugify(this.name, { lower: true });
   next();
 });
-
-/*
-tourSchema.post('', function(doc, next) {
-  console.log('Saved successfully\n', doc);
-  next();
-})
-*/
 
 tourSchema.pre("aggregate", function (next) {
   // .unshift() inserts data to start of an array

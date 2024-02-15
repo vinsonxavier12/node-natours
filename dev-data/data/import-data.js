@@ -17,24 +17,33 @@ mongoose
     useFindAndModify: true,
     useUnifiedTopology: true,
   })
-  .then((conn) => {
+  .then(() => {
     console.log("DB connected successfully!");
   });
 
-const port = process.env.PORT || 3000;
-
 const allTours = JSON.parse(
-  fs.readFileSync(`${__dirname}/tours-simple.json`, "utf-8"),
+  fs.readFileSync(`${__dirname}/tours.json`, "utf-8"),
 );
-const refactoredAllTours = allTours.map((ele) => {
-  delete ele.id;
-  return ele;
-});
-Tour.insertMany(refactoredAllTours)
-  .then((data) => {
-    console.log(data);
-    console.log("done raa");
-  })
-  .catch((err) => {
+
+const importData = async () => {
+  try {
+    await Tour.create(allTours);
+    console.log("Data loaded successfully");
+  } catch (err) {
     console.log(err);
-  });
+  }
+  process.exit();
+};
+
+const deleteData = async () => {
+  try {
+    await Tour.deleteMany();
+    console.log("Data deleted successfully");
+  } catch (err) {
+    console.log(err);
+  }
+  process.exit();
+};
+
+if (process.argv[2] === "--import") importData();
+else deleteData();
