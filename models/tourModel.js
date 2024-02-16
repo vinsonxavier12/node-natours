@@ -136,6 +136,13 @@ tourSchema.virtual("durationWeeks").get(function () {
   return this.duration / 7;
 });
 
+// Virtual populate of reviews
+tourSchema.virtual("reviews", {
+  ref: "Review",
+  foreignField: "tour",
+  localField: "_id",
+});
+
 // Query middleware
 tourSchema.pre(/^find/, function (next) {
   // Selecting documents which only has secretTour false

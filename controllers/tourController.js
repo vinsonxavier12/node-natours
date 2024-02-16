@@ -31,7 +31,13 @@ exports.getAllTours = catchAsyncError(async (req, res, next) => {
 });
 
 exports.getTour = catchAsyncError(async (req, res, next) => {
-  const tour = await Tour.findById(req.params.id);
+  // const tour = await Tour.findById(req.params.id).populate({
+  //   path: "reviews",
+  //   select: "review rating",
+  // });
+  const tour = await Tour.findById(req.params.id).populate({
+    path: "reviews",
+  });
   res.status(200).json({
     status: "success",
     data: {
