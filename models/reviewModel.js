@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
+const _ = require("lodash");
 
 const Tour = require("./tourModel");
+const AppError = require("../utilities/appError");
 
 const reviewSchema = new mongoose.Schema(
   {
@@ -35,6 +37,8 @@ const reviewSchema = new mongoose.Schema(
   },
 );
 
+reviewSchema.index({ tour: 1, user: 1 }, { unique: true });
+
 reviewSchema.statics.calculateAverageRatings = async function (tourId) {
   // In a static method, this points to the current model. Not the current doc
   const stats = await this.aggregate([
@@ -49,21 +53,43 @@ reviewSchema.statics.calculateAverageRatings = async function (tourId) {
       },
     },
   ]);
-  await Tour.findByIdAndUpdate(tourId, {
-    ratingsQuantity: stats[0].nRatings,
-    ratingsAverage: stats[0].avgRating,
-  });
+
+  if (!_.isEmpty(stats))
+    await Tour.findByIdAndUpdate(tourId, {
+      ratingsQuantity: stats[0].nRatings,
+      ratingsAverage: stats[0].avgRating,
+    });
+  else
+    await Tour.findByIdAndUpdate(tourId, {
+      ratingsQuantity: 0,
+      ratingsAverage: 4.5,
+    });
 };
 
 reviewSchema.post("save", function () {
+  // this points to current document
+  // this.constructor points to the model
   this.constructor.calculateAverageRatings(this.tour);
 });
 
+reviewSchema.pre(/^findOneAnd/, async function (next) {
+  // Here, this points to query
+  this.doc = await this.findOne();
+  next();
+});
+
+reviewSchema.post(/^findOneAnd/, async function () {
+  // Here, this points to query
+  await this.doc.constructor.calculateAverageRatings(this.doc.tour);
+  /* 
+    This also works. Seen from udemy comment section for the video.
+    Here document is the saved document given by mongoose that will
+    be in the function paramerer
+  */
+  // await document.constructor.calculateAverageRatings(document.tour)
+});
+
 reviewSchema.pre(/^find/, function (next) {
-  // this.populate({
-  //   path: "tour",
-  //   select: "name",
-  // })
   this.populate({
     path: "user",
     select: "name photo",
