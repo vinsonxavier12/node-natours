@@ -169,12 +169,12 @@ tourSchema.pre("save", function (next) {
   next();
 });
 
-tourSchema.pre("aggregate", function (next) {
-  // .unshift() inserts data to start of an array
-  // filtering secretTour to not to show
-  this.pipeline().unshift({ $match: { secretTour: { $ne: true } } });
-  next();
-});
+// tourSchema.pre("aggregate", function (next) {
+//   // .unshift() inserts data to start of an array
+//   // filtering secretTour to not to show
+//   this.pipeline().unshift({ $match: { secretTour: { $ne: true } } });
+//   next();
+// });
 
 const Tour = mongoose.model("Tour", tourSchema);
 module.exports = Tour;
