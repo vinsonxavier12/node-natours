@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
@@ -13,6 +14,10 @@ const reviewRouter = require("./routes/reviewRoutes");
 const errorController = require("./controllers/errorController");
 
 const app = express();
+
+// Setting pug as view engine
+app.set("view engine", "pug");
+app.set("views", path.join(__dirname, "views"));
 
 // DEV ENVIRONMENT LOGGING FOR REQUESTS
 if (process.env.NODE_ENV == "development") {
@@ -57,6 +62,13 @@ app.use(
 app.use((req, res, next) => {
   req.requestTime = new Date().toISOString();
   next();
+});
+
+app.get("/", (req, res) => {
+  res.status(200).render("base", {
+    tour: "Test tour",
+    text: "This is a test text",
+  });
 });
 
 app.use("/api/v1/tours", tourRouter);
