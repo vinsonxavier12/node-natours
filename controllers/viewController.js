@@ -15,7 +15,7 @@ exports.tour = catchAsyncError(async (req, res) => {
     fields: "user rating review",
   });
   res.status(200).render("tour", {
-    title: "test tour",
+    title: tour.name,
     tour,
   });
 });
