@@ -33,16 +33,26 @@ exports.resizeTourImages = catchAsyncError(async (req, res, next) => {
   }
 
   if (req.files.images) {
-    req.files.images.forEach(async (image, index) => {
-      req.body.images[index + 1] = `tour-${req.params.id}-${Date.now()}-${
-        index + 1
-      }.jpeg`;
-      await sharp(image.buffer)
-        .resize(2000, 1333)
-        .toFormat("jpeg")
-        .jpeg({ quality: 90 })
-        .toFile(`public/img/tours/${req.body.images[index + 1]}`);
-    });
+    /* 
+      Here, we are awaiting promise.all because the logic which is happening
+      inside the nested level callback which is a async doesn't make the code to
+      wait on the first level block. So inspite of using foreach we are using map
+      so that the promise from the async nested function returns a promise in that
+      array and we can use Promise.all to await in the first level block of code
+    */
+    req.body.images = [];
+    await Promise.all(
+      req.files.images.map(async (image, index) => {
+        req.body.images[index] = `tour-${req.params.id}-${Date.now()}-${
+          index + 1
+        }.jpeg`;
+        await sharp(image.buffer)
+          .resize(2000, 1333)
+          .toFormat("jpeg")
+          .jpeg({ quality: 90 })
+          .toFile(`public/img/tours/${req.body.images[index]}`);
+      }),
+    );
   }
 
   next();

@@ -13,6 +13,7 @@ const userRouter = require("./routes/userRoutes");
 const reviewRouter = require("./routes/reviewRoutes");
 const viewRouter = require("./routes/viewRoutes");
 const errorController = require("./controllers/errorController");
+const multer = require("multer");
 
 const app = express();
 
