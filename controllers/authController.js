@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const AppError = require("../utilities/appError");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const sendEmail = require("../utilities/email");
+const Email = require("../utilities/email");
 const { promisify } = require("util");
 
 function getSignedJwtToken(id) {
@@ -89,6 +89,8 @@ exports.signup = catchAsyncError(async (req, res, next) => {
     confirmPassword: req.body.confirmPassword,
   });
 
+  await new Email(signedupUser, "url of the action").sendWelcome();
+
   this.createSendToken(signedupUser, 201, res);
 });
 
@@ -133,14 +135,12 @@ exports.forgotPassword = catchAsyncError(async (req, res, next) => {
   const resetUrl = `${req.protocol}://${req.get(
     "host",
   )}/api/v1/users/resetPassword/${passwordToken}`;
-  const message = `Do you want to reset your password?  Submit a PATCH request with your new password
-  and confirm password to: ${resetUrl}`;
 
   try {
-    await sendEmail({
-      email: user.email,
-      subject: "Password reset token (Valid for only 10 mins)",
-      message,
+    await new Email(user, resetUrl).sendResetPassword();
+    return res.status(200).json({
+      status: "success",
+      message: "Email sent successfully",
     });
   } catch (err) {
     user.passwordResetToken = undefined;
@@ -150,11 +150,6 @@ exports.forgotPassword = catchAsyncError(async (req, res, next) => {
       new AppError("There was an error sending email.  Try again later", 500),
     );
   }
-
-  return res.status(200).json({
-    status: "success",
-    message: "Email sent successfully",
-  });
 });
 
 exports.resetPassword = catchAsyncError(async (req, res, next) => {

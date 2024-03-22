@@ -11,7 +11,16 @@ module.exports = class Email {
   }
 
   createTransport() {
-    if (process.env.NODE_ENV === "production") return null;
+    if (process.env.NODE_ENV === "production") {
+      // For email jonas used SendGrid
+      return nodemailer.createTransport({
+        service: "SendGrid",
+        auth: {
+          user: process.env.SENDGRID_USERNAME,
+          pass: process.env.SENDGRID_PASSWORD,
+        },
+      });
+    }
 
     return nodemailer.createTransport({
       port: process.env.EMAIL_PORT,
@@ -40,7 +49,7 @@ module.exports = class Email {
       to: this.to,
       subject,
       html,
-      text: htmlToText.fromString(html),
+      text: htmlToText.convert(html),
     };
 
     // 3) Create a transporter and send the email
@@ -50,27 +59,11 @@ module.exports = class Email {
   async sendWelcome() {
     await this.send("welcome", "Welcome to the natours phemily!");
   }
+
+  async sendResetPassword() {
+    await this.send(
+      "resetPassword",
+      "Reset your password(Valid for only 10 minutes",
+    );
+  }
 };
-
-// const sendEmail = async (options) => {
-//   // 1) Creating email transporter
-//   const transporter = nodemailer.createTransport({
-//     port: process.env.EMAIL_PORT,
-//     host: process.env.EMAIL_HOST,
-//     auth: {
-//       user: process.env.EMAIL_USERNAME,
-//       pass: process.env.EMAIL_PASSWORD,
-//     },
-//   });
-
-//   // 2) Defining email options
-//   const mailOptions = {
-//     from: "Vinson Xavier <vinsonxavier12@gmail.com>",
-//     to: options.email,
-//     subject: options.subject,
-//     text: options.message,
-//   };
-
-//   // 3) Sending the email
-//   await transporter.sendMail(mailOptions);
-// };
